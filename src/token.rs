@@ -2,7 +2,7 @@ use super::state::{SResult, State};
 use super::utils::Pos;
 use crate::utils::Loc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     Eof,
     Int32(String),
@@ -27,6 +27,10 @@ impl Token {
 
     pub fn get_type(&self) -> &TokenType {
         &self.r#type
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.r#type.eq(&TokenType::Eof)
     }
 }
 
