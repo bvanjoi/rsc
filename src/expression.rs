@@ -1,6 +1,6 @@
 use crate::{
     state::{SResult, State},
-    token::TokenType,
+    token::{Token, TokenType},
     utils::{Loc, Pos},
 };
 
@@ -30,12 +30,20 @@ pub struct Int32Literal {
 }
 
 impl State {
-    pub fn cur_token_start(&self) -> Pos {
-        self.cur_token.loc.get_start().clone()
+    pub(crate) fn cur_token(&self) -> &Token {
+        &self.tokens[self.tokens.len() - 1]
+    }
+
+    pub(crate) fn cur_token_start(&self) -> Pos {
+        self.cur_token().get_start().clone()
+    }
+
+    pub(crate) fn last_token(&self) -> &Token {
+        &self.tokens[self.tokens.len() - 2]
     }
 
     pub fn finish_loc(&self, start: Pos) -> Loc {
-        let end = self.last_token.as_ref().unwrap().loc.get_end().clone();
+        let end = self.last_token().get_end().clone();
         Loc::new(start, end)
     }
 
@@ -51,7 +59,7 @@ impl State {
     }
 
     fn parse_operation(&mut self, left: Expr, left_start: Pos) -> SResult<Expr> {
-        let tt = self.cur_token.r#type.clone();
+        let tt = self.cur_token().get_type().clone();
         if !matches!(tt, TokenType::Minus | TokenType::Plus) {
             return Ok(left);
         }
@@ -71,7 +79,7 @@ impl State {
     }
 
     fn parse_atom(&mut self) -> SResult<Expr> {
-        let tt = self.cur_token.r#type.clone();
+        let tt = self.cur_token().get_type().clone();
         let literal = self.parse_literal(tt)?;
         Ok(Expr::Literal(literal))
     }

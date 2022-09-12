@@ -2,11 +2,12 @@
 pub struct Pos {
     pub line: usize,
     pub column: usize,
+    pub pos: usize,
 }
 
 impl Pos {
-    pub fn new(line: usize, column: usize) -> Self {
-        Self { line, column }
+    pub fn new(pos: usize, line: usize, column: usize) -> Self {
+        Self { pos, line, column }
     }
 }
 
@@ -17,18 +18,18 @@ pub struct Loc {
 }
 
 impl Loc {
-    pub fn new(start: Pos, end: Pos) -> Self {
+    pub(crate) fn new(start: Pos, end: Pos) -> Self {
         Self {
             start,
             end: Some(end),
         }
     }
 
-    pub fn get_start(&self) -> &Pos {
+    pub(crate) fn get_start(&self) -> &Pos {
         &self.start
     }
 
-    pub fn get_end(&self) -> &Pos {
+    pub(crate) fn get_end(&self) -> &Pos {
         self.end.as_ref().unwrap()
     }
 }
