@@ -25,11 +25,10 @@ pub struct Program {
 impl State {
     pub fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
         let mut body = vec![];
-        while !matches!(self.cur_token.r#type, TokenType::Eof) {
+        while !matches!(self.cur_token().get_type(), TokenType::Eof) {
             let stmt = self.parse_statement()?;
             body.push(stmt)
         }
-        self.next()?;
         Ok(Program {
             loc: Loc::new(start, self.cur_pos()),
             body,
@@ -38,15 +37,12 @@ impl State {
 
     pub fn parse_statement(&mut self) -> SResult<Stmt> {
         let start = self.cur_token_start();
-        // TODO: match
-        let stmt = {
-            let expr = self.parse_expression()?;
-            self.next()?;
-            Stmt::Expr(ExprStmt {
-                loc: self.finish_loc(start),
-                expr,
-            })
-        };
+        let expr = self.parse_expression()?;
+        self.next()?;
+        let stmt = Stmt::Expr(ExprStmt {
+            loc: self.finish_loc(start),
+            expr,
+        });
         Ok(stmt)
     }
 }

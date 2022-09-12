@@ -12,26 +12,34 @@ pub enum TokenType {
 
 #[derive(Clone, Debug)]
 pub struct Token {
-    pub loc: Loc,
-    pub r#type: TokenType,
+    loc: Option<Loc>,
+    r#type: TokenType,
 }
 
 impl Token {
-    pub fn eof() -> Token {
-        Token {
-            loc: Loc::new(Pos::new(0, 0), Pos::new(0, 0)),
-            r#type: TokenType::Eof,
-        }
+    pub fn get_start(&self) -> Pos {
+        self.loc.as_ref().unwrap().get_start().clone()
+    }
+
+    pub fn get_end(&self) -> Pos {
+        self.loc.as_ref().unwrap().get_end().clone()
+    }
+
+    pub fn get_type(&self) -> &TokenType {
+        &self.r#type
     }
 }
 
 impl State {
     fn finish_token(&mut self, start: Pos, r#type: TokenType) -> SResult<()> {
         let end = self.cur_pos();
-        self.cur_token = Token {
-            loc: Loc::new(start, end),
+        let token = Token {
+            loc: Some(Loc::new(start, end)),
             r#type,
         };
+
+        self.tokens.push(token);
+        // self.cur_token = token;
         Ok(())
     }
 
@@ -48,26 +56,12 @@ impl State {
             }
         }
 
-        {
-            if start.column == 0 {
-                self.p.push(format!("mov ${}, %rax", num))
-            } else if matches!(self.last_token.as_ref().unwrap().r#type, TokenType::Minus) {
-                self.p.push(format!("sub ${}, %rax", num))
-            } else if matches!(self.last_token.as_ref().unwrap().r#type, TokenType::Plus) {
-                self.p.push(format!("add ${}, %rax", num))
-            }
-        }
-
         self.finish_token(start, TokenType::Int32(num))
     }
 
     pub(super) fn next(&mut self) -> SResult<()> {
-        self.last_token = Some(self.cur_token.clone());
-        self.next_token()
-    }
-
-    pub fn next_token(&mut self) -> SResult<()> {
         let start = self.cur_pos();
+        self.skip_space()?;
         if self.pos >= self.input.len() {
             self.finish_token(start, TokenType::Eof)
         } else {
@@ -93,5 +87,18 @@ impl State {
         // TODO: -=, --a, a--,
         self.pos += 1;
         self.finish_token(start, TokenType::Minus)
+    }
+
+    #[inline]
+    fn skip_space(&mut self) -> SResult<()> {
+        while self.pos < self.input.len() {
+            let ch = self.input[self.pos];
+            if ch == ' ' {
+                self.pos += 1;
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }
