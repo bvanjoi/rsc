@@ -1,3 +1,4 @@
+mod error;
 mod expression;
 mod state;
 mod statement;
@@ -6,7 +7,7 @@ mod utils;
 
 use state::*;
 use std::env;
-use token::TokenType;
+use token::{Token, TokenType};
 
 const HEAD: &str = r#".globl main
 main:
@@ -14,33 +15,29 @@ main:
 const TAIL: &str = r#"
 ret"#;
 
+fn expect_number(token: &Token) -> &String {
+    if let TokenType::Int32(num) = token.get_type() {
+        num
+    } else {
+        panic!();
+    }
+}
+
 fn process(input: &str) -> SResult<()> {
     let mut state = State::new(input.to_string());
     let (_program, tokens) = state.parse()?;
     println!("{}", HEAD);
     for index in 0..tokens.len() {
         let token = &tokens[index];
-        if matches!(token.get_type(), TokenType::Eof) {
+        if token.is_eof() {
             break;
         }
         if index == 0 {
-            if let TokenType::Int32(num) = token.get_type() {
-                println!("mov ${}, %rax", num);
-            } else {
-                panic!("expected a number, but get {:?}", token);
-            }
+            println!("mov ${}, %rax", expect_number(token));
         } else if matches!(token.get_type(), TokenType::Minus) {
-            if let TokenType::Int32(num) = tokens[index + 1].get_type() {
-                println!("sub ${}, %rax", num);
-            } else {
-                panic!("expected a number, but get {:?}", token);
-            }
+            println!("sub ${}, %rax", expect_number(&tokens[index + 1]));
         } else if matches!(token.get_type(), TokenType::Plus) {
-            if let TokenType::Int32(num) = tokens[index + 1].get_type() {
-                println!("add ${}, %rax", num);
-            } else {
-                panic!("expected a number, but get {:?}", token);
-            }
+            println!("add ${}, %rax", expect_number(&tokens[index + 1]));
         }
     }
     println!("{}", TAIL);

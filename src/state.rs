@@ -1,11 +1,12 @@
-use crate::{statement::Program, token::Token};
+use crate::{
+    error::{SError, SyntaxError},
+    statement::Program,
+    token::Token,
+};
 
 use super::utils::*;
 
-#[derive(Debug)]
-pub struct StateError {}
-
-pub type SResult<T> = Result<T, StateError>;
+pub type SResult<T> = Result<T, SError>;
 
 pub struct State {
     pub(crate) pos: usize,
@@ -35,5 +36,13 @@ impl State {
         self.next()?;
         let program = self.parse_top_level(start)?;
         Ok((program, self.tokens.clone()))
+    }
+
+    pub(super) fn unexpected(&self, token: &Token) -> SResult<()> {
+        let err = SError::new(
+            token.get_start().clone(),
+            SyntaxError::UnexpectedToken(token.clone()),
+        );
+        Err(err)
     }
 }
