@@ -2,18 +2,45 @@ use super::state::{SResult, State};
 use super::utils::Pos;
 use crate::utils::Loc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum TokenType {
     Eof,
     Int32(String),
     Plus,
     Minus,
+    Star,
+    Slash,
+    ParenL,
+    ParenR,
+}
+
+impl TokenType {
+    pub const fn prec(&self) -> Option<u16> {
+        // high       low
+        //  1          15
+        match self {
+            TokenType::Plus => Some(4),
+            TokenType::Minus => Some(4),
+            TokenType::Star => Some(3),
+            TokenType::Slash => Some(3),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Token {
     loc: Option<Loc>,
     r#type: TokenType,
+}
+
+impl Token {
+    pub const fn eof() -> Self {
+        Token {
+            loc: None,
+            r#type: TokenType::Eof,
+        }
+    }
 }
 
 impl Token {
@@ -30,7 +57,7 @@ impl Token {
     }
 
     pub fn is_eof(&self) -> bool {
-        self.r#type.eq(&TokenType::Eof)
+        matches!(self.r#type, TokenType::Eof)
     }
 }
 
@@ -42,8 +69,7 @@ impl State {
             r#type,
         };
 
-        self.tokens.push(token);
-        // self.cur_token = token;
+        self.tokens[0] = token;
         Ok(())
     }
 
@@ -63,7 +89,7 @@ impl State {
         self.finish_token(start, TokenType::Int32(num))
     }
 
-    pub(super) fn next(&mut self) -> SResult<()> {
+    pub(super) fn next_token(&mut self) -> SResult<()> {
         let start = self.cur_pos();
         self.skip_space()?;
         if self.pos >= self.input.len() {
@@ -74,6 +100,16 @@ impl State {
                 '0'..='9' => self.read_number(),
                 '+' => self.read_plus(),
                 '-' => self.read_minus(),
+                '*' => self.read_star(),
+                '/' => self.read_slash(),
+                '(' => {
+                    self.pos += 1;
+                    self.finish_token(start, TokenType::ParenL)
+                }
+                ')' => {
+                    self.pos += 1;
+                    self.finish_token(start, TokenType::ParenR)
+                }
                 _ => unreachable!(),
             }
         }
@@ -91,6 +127,20 @@ impl State {
         // TODO: -=, --a, a--,
         self.pos += 1;
         self.finish_token(start, TokenType::Minus)
+    }
+
+    fn read_star(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        // TODO: *=
+        self.pos += 1;
+        self.finish_token(start, TokenType::Star)
+    }
+
+    fn read_slash(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        // TODO: /=
+        self.pos += 1;
+        self.finish_token(start, TokenType::Slash)
     }
 
     #[inline]

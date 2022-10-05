@@ -27,7 +27,7 @@ impl State {
         let mut body = vec![];
         while !matches!(self.cur_token().get_type(), TokenType::Eof) {
             let stmt = self.parse_statement()?;
-            body.push(stmt)
+            body.push(stmt);
         }
         Ok(Program {
             loc: Loc::new(start, self.cur_pos()),
@@ -44,5 +44,20 @@ impl State {
             expr,
         });
         Ok(stmt)
+    }
+
+    pub fn next(&mut self) -> SResult<()> {
+        self.tokens[1] = self.cur_token().clone();
+        self.next_token()
+    }
+
+    pub fn expect(&mut self, _expected: &TokenType) -> SResult<()> {
+        let token = self.cur_token();
+        let actual = token.get_type();
+        if !matches!(actual, _expected) {
+            self.unexpected(token)
+        } else {
+            self.next()
+        }
     }
 }
