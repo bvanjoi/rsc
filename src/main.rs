@@ -1,5 +1,7 @@
+mod code_gen;
 mod error;
 mod expression;
+mod p;
 mod state;
 mod statement;
 mod token;
@@ -7,40 +9,13 @@ mod utils;
 
 use state::*;
 use std::env;
-use token::{Token, TokenType};
-
-const HEAD: &str = r#".globl main
-main:
-"#;
-const TAIL: &str = r#"
-ret"#;
-
-fn expect_number(token: &Token) -> &String {
-    if let TokenType::Int32(num) = token.get_type() {
-        num
-    } else {
-        panic!();
-    }
-}
 
 fn process(input: &str) -> SResult<()> {
     let mut state = State::new(input.to_string());
-    let (_program, tokens) = state.parse()?;
-    println!("{}", HEAD);
-    for index in 0..tokens.len() {
-        let token = &tokens[index];
-        if token.is_eof() {
-            break;
-        }
-        if index == 0 {
-            println!("mov ${}, %rax", expect_number(token));
-        } else if matches!(token.get_type(), TokenType::Minus) {
-            println!("sub ${}, %rax", expect_number(&tokens[index + 1]));
-        } else if matches!(token.get_type(), TokenType::Plus) {
-            println!("add ${}, %rax", expect_number(&tokens[index + 1]));
-        }
-    }
-    println!("{}", TAIL);
+    let program = state.parse()?;
+    head!();
+    code_gen::run(&program);
+    tail!();
     Ok(())
 }
 

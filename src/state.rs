@@ -13,7 +13,7 @@ pub struct State {
     cur_line: usize,
     line_start: usize,
     pub(crate) input: Vec<char>,
-    pub(crate) tokens: Vec<Token>,
+    pub(crate) tokens: [Token; 2],
 }
 
 impl State {
@@ -23,7 +23,7 @@ impl State {
             cur_line: 1,
             line_start: 0,
             input: input.chars().collect(),
-            tokens: vec![],
+            tokens: [Token::eof(), Token::eof()],
         }
     }
 
@@ -31,16 +31,17 @@ impl State {
         Pos::new(self.pos, self.cur_line, self.pos - self.line_start)
     }
 
-    pub fn parse(&mut self) -> SResult<(Program, Vec<Token>)> {
+    pub fn parse(&mut self) -> SResult<Program> {
         let start = self.cur_pos();
-        self.next()?;
+        self.next_token()?;
         let program = self.parse_top_level(start)?;
-        Ok((program, self.tokens.clone()))
+        Ok(program)
     }
 
-    pub(super) fn unexpected(&self, token: &Token) -> SResult<()> {
+    pub(super) fn unexpected<T>(&self, token: &Token) -> SResult<T> {
+        // TODO: lines
         let err = SError::new(
-            token.get_start().clone(),
+            token.get_start(),
             SyntaxError::UnexpectedToken(token.clone()),
         );
         Err(err)
