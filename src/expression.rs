@@ -78,7 +78,7 @@ impl State {
             }
             self.next()?;
             let start = self.cur_token_start();
-            let expr = self.parse_atom()?;
+            let expr = self.parse_maybe_unary()?;
             let right = self.parse_operation(expr, start, prec)?;
             let loc = self.finish_loc(left_start);
             let expr = Expr::Binary(BinaryExpr {

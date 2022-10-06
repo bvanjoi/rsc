@@ -3,7 +3,7 @@ use super::utils::Pos;
 use crate::error::{SError, SyntaxError};
 use crate::utils::Loc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
     Eof,
     Int32(String),
@@ -19,6 +19,7 @@ pub enum TokenType {
     LessEqual,
     Great,
     GreatEqual,
+    Semi,
 }
 
 impl TokenType {
@@ -125,6 +126,10 @@ impl State {
                 '!' => self.read_excl(),
                 '<' => self.read_less(),
                 '>' => self.read_greater(),
+                ';' => {
+                    self.pos += 1;
+                    self.finish_token(start, TokenType::Semi)
+                }
                 _ => unreachable!(),
             }
         }

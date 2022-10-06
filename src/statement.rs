@@ -23,7 +23,7 @@ pub struct Program {
 }
 
 impl State {
-    pub fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
+    pub(crate) fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
         let mut body = vec![];
         while !self.cur_token().is_eof() {
             let stmt = self.parse_statement()?;
@@ -35,10 +35,10 @@ impl State {
         })
     }
 
-    pub fn parse_statement(&mut self) -> SResult<Stmt> {
+    fn parse_statement(&mut self) -> SResult<Stmt> {
         let start = self.cur_token_start();
         let expr = self.parse_expression()?;
-        self.next()?;
+        self.expect(&TokenType::Semi)?;
         let stmt = Stmt::Expr(ExprStmt {
             loc: self.finish_loc(start),
             expr,
@@ -46,15 +46,16 @@ impl State {
         Ok(stmt)
     }
 
-    pub fn next(&mut self) -> SResult<()> {
+    pub(crate) fn next(&mut self) -> SResult<()> {
         self.tokens[1] = self.cur_token().clone();
         self.next_token()
     }
 
-    pub fn expect(&mut self, _expected: &TokenType) -> SResult<()> {
+    pub(crate) fn expect(&mut self, expected: &TokenType) -> SResult<()> {
         let token = self.cur_token();
         let actual = token.get_type();
-        if !matches!(actual, _expected) {
+
+        if actual != expected {
             self.unexpected(token)
         } else {
             self.next()
