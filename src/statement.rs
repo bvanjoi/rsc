@@ -25,7 +25,7 @@ pub struct Program {
 impl State {
     pub fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
         let mut body = vec![];
-        while !matches!(self.cur_token().get_type(), TokenType::Eof) {
+        while !self.cur_token().is_eof() {
             let stmt = self.parse_statement()?;
             body.push(stmt);
         }

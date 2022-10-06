@@ -41,7 +41,7 @@ impl State {
     pub(super) fn unexpected<T>(&self, token: &Token) -> SResult<T> {
         // TODO: lines
         let err = SError::new(
-            token.get_start(),
+            token.get_start().pos,
             SyntaxError::UnexpectedToken(token.clone()),
         );
         Err(err)

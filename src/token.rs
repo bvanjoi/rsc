@@ -1,5 +1,6 @@
 use super::state::{SResult, State};
 use super::utils::Pos;
+use crate::error::{SError, SyntaxError};
 use crate::utils::Loc;
 
 #[derive(Clone, Debug)]
@@ -12,24 +13,31 @@ pub enum TokenType {
     Slash,
     ParenL,
     ParenR,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Great,
+    GreatEqual,
 }
 
 impl TokenType {
+    /// https://en.cppreference.com/w/c/language/operator_precedence
     pub const fn prec(&self) -> Option<u16> {
-        // high       low
-        //  1          15
+        use TokenType::*;
         match self {
-            TokenType::Plus | TokenType::Minus => Some(4),
-            TokenType::Star | TokenType::Slash => Some(3),
+            // high       low
+            //  1          15
+            Plus | Minus => Some(4),
+            Star | Slash => Some(3),
+            Equal | NotEqual | Less | LessEqual | Great | GreatEqual => Some(7),
             _ => None,
         }
     }
 
     pub const fn prefix(&self) -> bool {
-        match self {
-            TokenType::Plus | TokenType::Minus => true,
-            _ => false,
-        }
+        use TokenType::*;
+        matches!(self, Plus | Minus)
     }
 }
 
@@ -37,15 +45,6 @@ impl TokenType {
 pub struct Token {
     loc: Option<Loc>,
     r#type: TokenType,
-}
-
-impl Token {
-    pub const fn eof() -> Self {
-        Token {
-            loc: None,
-            r#type: TokenType::Eof,
-        }
-    }
 }
 
 impl Token {
@@ -63,6 +62,13 @@ impl Token {
 
     pub fn is_eof(&self) -> bool {
         matches!(self.r#type, TokenType::Eof)
+    }
+
+    pub const fn eof() -> Self {
+        Token {
+            loc: None,
+            r#type: TokenType::Eof,
+        }
     }
 }
 
@@ -115,9 +121,63 @@ impl State {
                     self.pos += 1;
                     self.finish_token(start, TokenType::ParenR)
                 }
+                '=' => self.read_equal(),
+                '!' => self.read_excl(),
+                '<' => self.read_less(),
+                '>' => self.read_greater(),
                 _ => unreachable!(),
             }
         }
+    }
+
+    fn read_equal(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        if let Some(&char) = self.input.get(self.pos + 1) {
+            if char == '=' {
+                self.pos += 2;
+                return self.finish_token(start, TokenType::Equal);
+            }
+        } else {
+            // TODO: assign
+        }
+        self.pos += 1;
+        Err(SError::new(self.pos + 1, SyntaxError::UnexpectedChar))
+    }
+
+    fn read_excl(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        if let Some(&char) = self.input.get(self.pos + 1) {
+            if char == '=' {
+                self.pos += 2;
+                return self.finish_token(start, TokenType::NotEqual);
+            }
+        }
+        self.pos += 1;
+        Err(SError::new(self.pos + 1, SyntaxError::UnexpectedChar))
+    }
+
+    fn read_less(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        if let Some(&char) = self.input.get(self.pos + 1) {
+            if char == '=' {
+                self.pos += 2;
+                return self.finish_token(start, TokenType::LessEqual);
+            }
+        }
+        self.pos += 1;
+        self.finish_token(start, TokenType::Less)
+    }
+
+    fn read_greater(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        if let Some(&char) = self.input.get(self.pos + 1) {
+            if char == '=' {
+                self.pos += 2;
+                return self.finish_token(start, TokenType::GreatEqual);
+            }
+        }
+        self.pos += 1;
+        self.finish_token(start, TokenType::Great)
     }
 
     fn read_plus(&mut self) -> SResult<()> {

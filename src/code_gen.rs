@@ -35,19 +35,50 @@ fn binary_expression(expr: &BinaryExpr) {
     expression(&expr.left);
     pop!("%rdi");
 
+    use TokenType::*;
     match expr.op {
-        TokenType::Plus => {
+        Plus => {
             println!("add %rdi, %rax");
         }
-        TokenType::Minus => {
+        Minus => {
             println!("sub %rdi, %rax");
         }
-        TokenType::Star => {
+        Star => {
             println!("imul %rdi, %rax");
         }
-        TokenType::Slash => {
+        Slash => {
             println!("cqo");
             println!("idiv %rdi");
+        }
+        Equal => {
+            println!("cmp %rdi, %rax");
+            println!("sete %al");
+            println!("movzb %al, %rax");
+        }
+        NotEqual => {
+            println!("cmp %rdi, %rax");
+            println!("setne %al");
+            println!("movzb %al, %rax");
+        }
+        Less => {
+            println!("cmp %rdi, %rax");
+            println!("setl %al");
+            println!("movzb %al, %rax");
+        }
+        LessEqual => {
+            println!("cmp %rdi, %rax");
+            println!("setle %al");
+            println!("movzb %al, %rax");
+        }
+        Great => {
+            println!("cmp %rdi, %rax");
+            println!("setg %al");
+            println!("movzb %al, %rax");
+        }
+        GreatEqual => {
+            println!("cmp %rdi, %rax");
+            println!("setge %al");
+            println!("movzb %al, %rax");
         }
         _ => unreachable!(),
     }
