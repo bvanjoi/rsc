@@ -19,11 +19,16 @@ impl TokenType {
         // high       low
         //  1          15
         match self {
-            TokenType::Plus => Some(4),
-            TokenType::Minus => Some(4),
-            TokenType::Star => Some(3),
-            TokenType::Slash => Some(3),
+            TokenType::Plus | TokenType::Minus => Some(4),
+            TokenType::Star | TokenType::Slash => Some(3),
             _ => None,
+        }
+    }
+
+    pub const fn prefix(&self) -> bool {
+        match self {
+            TokenType::Plus | TokenType::Minus => true,
+            _ => false,
         }
     }
 }

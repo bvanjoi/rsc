@@ -1,5 +1,5 @@
 use crate::{
-    expression::{BinaryExpr, Expr, Int32Literal, Literal},
+    expression::{BinaryExpr, Expr, Int32Literal, Literal, UnaryExpr},
     pop, push,
     statement::{ExprStmt, Program, Stmt},
     token::TokenType,
@@ -23,8 +23,9 @@ fn expression_statement(stmt: &ExprStmt) {
 
 fn expression(expr: &Expr) {
     match expr {
-        Expr::Binary(expr) => binary_expression(expr),
+        Expr::Binary(bin) => binary_expression(bin),
         Expr::Literal(lit) => literal(lit),
+        Expr::Unary(unary) => unary_expression(unary),
     }
 }
 
@@ -60,4 +61,15 @@ fn literal(lit: &Literal) {
 
 fn int32_literal(lit: &Int32Literal) {
     println!("mov ${}, %rax", lit.num);
+}
+
+fn unary_expression(expr: &UnaryExpr) {
+    match expr.op {
+        TokenType::Plus => expression(&expr.argument),
+        TokenType::Minus => {
+            expression(&expr.argument);
+            println!("neg %rax");
+        }
+        _ => unreachable!(),
+    }
 }

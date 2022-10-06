@@ -8,6 +8,7 @@ use crate::{
 pub enum Expr {
     Binary(BinaryExpr),
     Literal(Literal),
+    Unary(UnaryExpr),
 }
 
 #[derive(Debug)]
@@ -16,6 +17,14 @@ pub struct BinaryExpr {
     pub left: Box<Expr>,
     pub op: TokenType,
     pub right: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct UnaryExpr {
+    pub loc: Loc,
+    pub op: TokenType,
+    pub argument: Box<Expr>,
+    pub prefix: bool,
 }
 
 #[derive(Debug)]
@@ -54,7 +63,7 @@ impl State {
 
     fn parse_operations(&mut self) -> SResult<Expr> {
         let start = self.cur_token_start();
-        let expr = self.parse_atom()?;
+        let expr = self.parse_maybe_unary()?;
         self.parse_operation(expr, start, 16)
     }
 
@@ -84,10 +93,28 @@ impl State {
         }
     }
 
+    fn parse_maybe_unary(&mut self) -> SResult<Expr> {
+        let start = self.cur_token_start();
+        let tt = self.cur_token().get_type().clone();
+        let expr = if tt.prefix() {
+            self.next()?;
+            let argument = self.parse_maybe_unary()?;
+            let loc = self.finish_loc(start);
+            Expr::Unary(UnaryExpr {
+                loc,
+                op: tt,
+                argument: Box::new(argument),
+                prefix: true,
+            })
+        } else {
+            self.parse_atom()?
+        };
+        Ok(expr)
+    }
+
     fn parse_atom(&mut self) -> SResult<Expr> {
         let token = self.cur_token();
         let tt = token.get_type().clone();
-
         let expr = match &tt {
             TokenType::Int32(_) => Expr::Literal(self.parse_literal(tt)?),
             TokenType::ParenL => self.parse_paren_expr()?,
