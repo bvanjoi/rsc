@@ -18,4 +18,5 @@ impl SError {
 pub enum SyntaxError {
     UnexpectedChar,
     UnexpectedToken(Token),
+    CastWrong,
 }

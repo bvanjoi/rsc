@@ -4,6 +4,9 @@ macro_rules! head {
         println!(
             r#".globl main
 main:
+    push %rbp
+    mov %rsp, %rbp
+    sub $208, %rsp
         "#
         )
     };
@@ -14,7 +17,9 @@ macro_rules! tail {
     () => {
         println!(
             r#"
-ret
+    mov %rbp, %rsp
+    pop %rbp
+    ret
 "#
         )
     };
