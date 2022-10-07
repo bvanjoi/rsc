@@ -17,6 +17,7 @@ macro_rules! tail {
     () => {
         println!(
             r#"
+    .L.return:
     mov %rbp, %rsp
     pop %rbp
     ret

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{
     error::{SError, SyntaxError},
     statement::Program,
-    token::Token,
+    token::{Token, TokenType},
 };
 
 use super::utils::*;
@@ -9,21 +11,25 @@ use super::utils::*;
 pub type SResult<T> = Result<T, SError>;
 
 pub struct State {
-    pub(crate) pos: usize,
+    pub(super) pos: usize,
     cur_line: usize,
     line_start: usize,
-    pub(crate) input: Vec<char>,
-    pub(crate) tokens: [Token; 2],
+    pub(super) keywords: HashMap<String, TokenType>,
+    pub(super) input: Vec<char>,
+    pub(super) tokens: [Token; 2],
 }
 
 impl State {
     pub fn new(input: String) -> Self {
+        let keywords =
+            HashMap::from_iter([(String::from("return"), TokenType::Return)].into_iter());
         Self {
             pos: 0,
             cur_line: 1,
             line_start: 0,
             input: input.chars().collect(),
             tokens: [Token::eof(), Token::eof()],
+            keywords,
         }
     }
 
