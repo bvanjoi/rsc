@@ -22,6 +22,7 @@ pub enum TokenType {
     Semi,
     Assign,
     Name(String),
+    Return,
 }
 
 impl TokenType {
@@ -162,8 +163,15 @@ impl State {
             }
             self.pos += 1;
         }
-        // TODO: match int, long long....
-        self.finish_token(start, TokenType::Name(str))
+        let tt = self
+            .is_keyword(&str)
+            .map(|tt| tt.clone())
+            .unwrap_or_else(|| TokenType::Name(str));
+        self.finish_token(start, tt)
+    }
+
+    fn is_keyword(&self, str: &str) -> Option<&TokenType> {
+        self.keywords.get(str)
     }
 
     fn read_equal(&mut self) -> SResult<()> {

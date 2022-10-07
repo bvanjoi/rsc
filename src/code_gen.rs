@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{ExprStmt, Program, Stmt},
+    statement::{ExprStmt, Program, ReturnStmt, Stmt},
     tail,
     token::TokenType,
 };
@@ -33,7 +33,16 @@ impl Context {
     fn statement(&mut self, stmt: &Stmt) {
         match stmt {
             Stmt::Expr(stmt) => self.expression_statement(stmt),
+            Stmt::Return(stmt) => self.return_statement(stmt),
         }
+    }
+
+    fn return_statement(&mut self, stmt: &ReturnStmt) {
+        if let Some(expr) = &stmt.argument {
+            self.expression(expr);
+        }
+
+        println!("jmp .L.return");
     }
 
     fn expression_statement(&mut self, stmt: &ExprStmt) {
