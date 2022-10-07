@@ -13,9 +13,8 @@ use std::env;
 fn process(input: &str) -> SResult<()> {
     let mut state = State::new(input.to_string());
     let program = state.parse()?;
-    head!();
-    code_gen::run(&program);
-    tail!();
+    let context = code_gen::Context::new();
+    code_gen::run(&program, context);
     Ok(())
 }
 

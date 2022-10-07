@@ -20,6 +20,8 @@ pub enum TokenType {
     Great,
     GreatEqual,
     Semi,
+    Assign,
+    Name(String),
 }
 
 impl TokenType {
@@ -39,6 +41,11 @@ impl TokenType {
     pub const fn prefix(&self) -> bool {
         use TokenType::*;
         matches!(self, Plus | Minus)
+    }
+
+    pub const fn assign(&self) -> bool {
+        use TokenType::*;
+        matches!(self, Assign)
     }
 }
 
@@ -85,22 +92,6 @@ impl State {
         Ok(())
     }
 
-    fn read_number(&mut self) -> SResult<()> {
-        let start = self.cur_pos();
-        let mut num = String::new();
-        while self.pos < self.input.len() {
-            let char = self.input[self.pos];
-            if ('0'..='9').contains(&char) {
-                num.push(char);
-                self.pos += 1;
-            } else {
-                break;
-            }
-        }
-
-        self.finish_token(start, TokenType::Int32(num))
-    }
-
     pub(super) fn next_token(&mut self) -> SResult<()> {
         let start = self.cur_pos();
         self.skip_space()?;
@@ -130,9 +121,49 @@ impl State {
                     self.pos += 1;
                     self.finish_token(start, TokenType::Semi)
                 }
-                _ => unreachable!(),
+                _ => self.read_word(),
             }
         }
+    }
+
+    fn read_number(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        let mut num = String::new();
+        while self.pos < self.input.len() {
+            let char = self.input[self.pos];
+            if ('0'..='9').contains(&char) {
+                num.push(char);
+                self.pos += 1;
+            } else {
+                break;
+            }
+        }
+
+        self.finish_token(start, TokenType::Int32(num))
+    }
+
+    fn is_valid_start(char: &char) -> bool {
+        (char >= &'a' && char <= &'z') || (char >= &'A' && char <= &'Z') || char == &'_'
+    }
+
+    fn is_valid(char: &char) -> bool {
+        Self::is_valid_start(char) || (char >= &'0' && char <= &'9')
+    }
+
+    fn read_word(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        let mut str = String::new();
+        while self.pos < self.input.len() {
+            let char = self.input[self.pos];
+            if (self.pos == start.pos && Self::is_valid_start(&char)) || Self::is_valid(&char) {
+                str.push(char);
+            } else {
+                break;
+            }
+            self.pos += 1;
+        }
+        // TODO: match int, long long....
+        self.finish_token(start, TokenType::Name(str))
     }
 
     fn read_equal(&mut self) -> SResult<()> {
@@ -142,11 +173,9 @@ impl State {
                 self.pos += 2;
                 return self.finish_token(start, TokenType::Equal);
             }
-        } else {
-            // TODO: assign
         }
         self.pos += 1;
-        Err(SError::new(self.pos + 1, SyntaxError::UnexpectedChar))
+        self.finish_token(start, TokenType::Assign)
     }
 
     fn read_excl(&mut self) -> SResult<()> {
