@@ -5,30 +5,6 @@ use crate::{
     utils::{Loc, Pos},
 };
 
-#[derive(Debug)]
-pub enum Stmt {
-    Expr(ExprStmt),
-    Return(ReturnStmt),
-}
-
-#[derive(Debug)]
-pub struct ExprStmt {
-    pub loc: Loc,
-    pub expr: Expr,
-}
-
-#[derive(Debug)]
-pub struct Program {
-    pub loc: Loc,
-    pub body: Vec<Stmt>,
-}
-
-#[derive(Debug)]
-pub struct ReturnStmt {
-    pub loc: Loc,
-    pub argument: Option<Expr>,
-}
-
 impl State {
     pub(crate) fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
         let mut body = vec![];
@@ -51,6 +27,10 @@ impl State {
                 let stmt = self.parse_return_statement()?;
                 Stmt::Return(stmt)
             }
+            TokenType::BraceL => {
+                let stmt = self.parse_block()?;
+                Stmt::Block(stmt)
+            }
             _ => {
                 let expr = self.parse_expression()?;
                 self.expect(&TokenType::Semi)?;
@@ -62,6 +42,26 @@ impl State {
         };
 
         Ok(stmt)
+    }
+
+    fn parse_block(&mut self) -> SResult<BlockStmt> {
+        let mut body = vec![];
+        let start = self.cur_pos();
+        self.expect(&TokenType::BraceL)?;
+        loop {
+            let tt = self.cur_token().get_type();
+            if !matches!(tt, &TokenType::BraceR) {
+                let stmt = self.parse_statement()?;
+                body.push(stmt);
+            } else {
+                break;
+            }
+        }
+        self.next()?;
+        Ok(BlockStmt {
+            loc: self.finish_loc(start),
+            body,
+        })
     }
 
     fn parse_return_statement(&mut self) -> SResult<ReturnStmt> {
@@ -102,4 +102,35 @@ impl State {
             self.unexpected(token)
         }
     }
+}
+
+#[derive(Debug)]
+pub enum Stmt {
+    Expr(ExprStmt),
+    Return(ReturnStmt),
+    Block(BlockStmt),
+}
+
+#[derive(Debug)]
+pub struct BlockStmt {
+    pub loc: Loc,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug)]
+pub struct ExprStmt {
+    pub loc: Loc,
+    pub expr: Expr,
+}
+
+#[derive(Debug)]
+pub struct Program {
+    pub loc: Loc,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug)]
+pub struct ReturnStmt {
+    pub loc: Loc,
+    pub argument: Option<Expr>,
 }
