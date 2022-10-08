@@ -28,6 +28,7 @@ pub enum TokenType {
     If,
     Else,
     Return,
+    For,
 }
 
 impl TokenType {
