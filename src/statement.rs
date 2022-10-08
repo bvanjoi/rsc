@@ -31,6 +31,11 @@ impl State {
                 let stmt = self.parse_block()?;
                 Stmt::Block(stmt)
             }
+            TokenType::Semi => {
+                self.next()?;
+                let loc = self.finish_loc(start);
+                Stmt::Empty(EmptyStmt { loc })
+            }
             _ => {
                 let expr = self.parse_expression()?;
                 self.expect(&TokenType::Semi)?;
@@ -109,6 +114,12 @@ pub enum Stmt {
     Expr(ExprStmt),
     Return(ReturnStmt),
     Block(BlockStmt),
+    Empty(EmptyStmt),
+}
+
+#[derive(Debug)]
+pub struct EmptyStmt {
+    pub loc: Loc,
 }
 
 #[derive(Debug)]

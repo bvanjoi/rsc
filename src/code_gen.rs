@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{BlockStmt, ExprStmt, Program, ReturnStmt, Stmt},
+    statement::{BlockStmt, EmptyStmt, ExprStmt, Program, ReturnStmt, Stmt},
     tail,
     token::TokenType,
 };
@@ -35,7 +35,12 @@ impl Context {
             Stmt::Expr(stmt) => self.expression_statement(stmt),
             Stmt::Return(stmt) => self.return_statement(stmt),
             Stmt::Block(stmt) => self.block_statement(stmt),
+            Stmt::Empty(stmt) => self.empty_statement(stmt),
         }
+    }
+
+    fn empty_statement(&mut self, _stmt: &EmptyStmt) {
+        ()
     }
 
     fn block_statement(&mut self, stmt: &BlockStmt) {
