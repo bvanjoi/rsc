@@ -13,6 +13,8 @@ pub enum TokenType {
     Slash,
     ParenL,
     ParenR,
+    BraceL,
+    BraceR,
     Equal,
     NotEqual,
     Less,
@@ -22,9 +24,10 @@ pub enum TokenType {
     Semi,
     Assign,
     Name(String),
+    // keyword
+    If,
+    Else,
     Return,
-    BraceL,
-    BraceR,
 }
 
 impl TokenType {

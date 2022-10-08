@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{BlockStmt, EmptyStmt, ExprStmt, Program, ReturnStmt, Stmt},
+    statement::{BlockStmt, EmptyStmt, ExprStmt, IfStmt, Program, ReturnStmt, Stmt},
     tail,
     token::TokenType,
 };
@@ -21,13 +21,18 @@ type Address = isize;
 
 pub struct Context {
     idents: HashMap<String, Address>,
+    if_count: usize,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
             idents: Default::default(),
+            if_count: 0,
         }
+    }
+    fn count(&mut self) {
+        self.if_count += 1;
     }
 
     fn statement(&mut self, stmt: &Stmt) {
@@ -36,7 +41,23 @@ impl Context {
             Stmt::Return(stmt) => self.return_statement(stmt),
             Stmt::Block(stmt) => self.block_statement(stmt),
             Stmt::Empty(stmt) => self.empty_statement(stmt),
+            Stmt::If(stmt) => self.if_statement(stmt),
         }
+    }
+
+    fn if_statement(&mut self, stmt: &IfStmt) {
+        self.count();
+        let c = self.if_count;
+        self.expression(&stmt.test);
+        println!("cmp $0, %rax");
+        println!("je .L.else.{}", c);
+        self.statement(&stmt.consequent);
+        println!("jmp .L.end.{}", c);
+        println!(".L.else.{}:", c);
+        if let Some(alternate) = &stmt.alternate {
+            self.statement(alternate)
+        }
+        println!(".L.end.{}:", c);
     }
 
     fn empty_statement(&mut self, _stmt: &EmptyStmt) {

@@ -30,5 +30,5 @@ fn main() -> Result<(), String> {
 
 #[test]
 fn tttt() {
-    process("{ return 0;}").unwrap();
+    process("{ if (0) { return 3; } else { return 4; } }").unwrap();
 }
