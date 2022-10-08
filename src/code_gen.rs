@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt},
+    statement::{
+        BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt, WhileStmt,
+    },
     tail,
     token::TokenType,
 };
@@ -46,7 +48,19 @@ impl Context {
             Stmt::Empty(stmt) => self.empty_statement(stmt),
             Stmt::If(stmt) => self.if_statement(stmt),
             Stmt::For(stmt) => self.for_statement(stmt),
+            Stmt::While(stmt) => self.while_statement(stmt),
         }
+    }
+
+    fn while_statement(&mut self, stmt: &WhileStmt) {
+        let c = self.count();
+        println!(".L.begin.{}:", c);
+        self.expression(&stmt.test);
+        println!("cmp $0, %rax");
+        println!("je .L.end.{}", c);
+        self.statement(&stmt.body);
+        println!("jmp .L.begin.{}", c);
+        println!(".L.end.{}:", c);
     }
 
     fn for_statement(&mut self, stmt: &ForStmt) {

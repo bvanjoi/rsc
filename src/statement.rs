@@ -39,6 +39,7 @@ impl State {
             }
             TokenType::If => Stmt::If(self.parse_if_statement()?),
             TokenType::For => Stmt::For(self.parse_for_statement()?),
+            TokenType::While => Stmt::While(self.parse_while_statement()?),
             _ => {
                 let expr = self.parse_expression()?;
                 self.expect(&TokenType::Semi)?;
@@ -50,6 +51,17 @@ impl State {
         };
 
         Ok(stmt)
+    }
+
+    fn parse_while_statement(&mut self) -> SResult<WhileStmt> {
+        let start = self.cur_token_start();
+        self.next()?;
+        self.expect(&TokenType::ParenL)?;
+        let test = self.parse_expression()?;
+        self.expect(&TokenType::ParenR)?;
+        let body = Box::new(self.parse_statement()?);
+        let loc = self.finish_loc(start);
+        Ok(WhileStmt { loc, test, body })
     }
 
     fn parse_for_statement(&mut self) -> SResult<ForStmt> {
@@ -86,7 +98,7 @@ impl State {
 
     fn parse_block(&mut self) -> SResult<BlockStmt> {
         let mut body = vec![];
-        let start = self.cur_pos();
+        let start = self.cur_token_start();
         self.expect(&TokenType::BraceL)?;
         loop {
             let tt = self.cur_token().get_type();
@@ -105,7 +117,7 @@ impl State {
     }
 
     fn parse_if_statement(&mut self) -> SResult<IfStmt> {
-        let start = self.cur_pos();
+        let start = self.cur_token_start();
         self.next()?;
         let test = self.parse_paren_expr()?;
         let consequent = Box::new(self.parse_statement()?);
@@ -125,7 +137,7 @@ impl State {
     }
 
     fn parse_return_statement(&mut self) -> SResult<ReturnStmt> {
-        let start = self.cur_pos();
+        let start = self.cur_token_start();
         self.next()?;
         let stmt = if self.eat(&TokenType::Semi)? {
             ReturnStmt {
@@ -177,6 +189,7 @@ pub enum Stmt {
     Empty(EmptyStmt),
     If(IfStmt),
     For(ForStmt),
+    While(WhileStmt),
 }
 
 #[derive(Debug)]
@@ -185,6 +198,13 @@ pub struct ForStmt {
     pub init: Option<Expr>,
     pub test: Option<Expr>,
     pub update: Option<Expr>,
+    pub body: Box<Stmt>,
+}
+
+#[derive(Debug)]
+pub struct WhileStmt {
+    pub loc: Loc,
+    pub test: Expr,
     pub body: Box<Stmt>,
 }
 

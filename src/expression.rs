@@ -29,7 +29,7 @@ impl State {
     }
 
     fn parse_maybe_assign(&mut self) -> SResult<Expr> {
-        let start = self.cur_pos();
+        let start = self.cur_token_start();
         let left = self.parse_operations()?;
         let tt = self.cur_token().get_type();
         if tt.assign() {
@@ -110,7 +110,7 @@ impl State {
     }
 
     fn parse_ident(&mut self) -> SResult<IdentExpr> {
-        let start = self.cur_pos();
+        let start = self.cur_token_start();
         let tt = self.cur_token().get_type();
         let name = match tt {
             TokenType::Name(name) => name.to_string(),

@@ -27,6 +27,7 @@ impl State {
                 (String::from("if"), TokenType::If),
                 (String::from("else"), TokenType::Else),
                 (String::from("for"), TokenType::For),
+                (String::from("while"), TokenType::While),
             ]
             .into_iter(),
         );

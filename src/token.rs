@@ -29,6 +29,7 @@ pub enum TokenType {
     Else,
     Return,
     For,
+    While,
 }
 
 impl TokenType {
