@@ -26,6 +26,7 @@ impl State {
                 (String::from("return"), TokenType::Return),
                 (String::from("if"), TokenType::If),
                 (String::from("else"), TokenType::Else),
+                (String::from("for"), TokenType::For),
             ]
             .into_iter(),
         );

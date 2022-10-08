@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{BlockStmt, EmptyStmt, ExprStmt, IfStmt, Program, ReturnStmt, Stmt},
+    statement::{BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt},
     tail,
     token::TokenType,
 };
@@ -21,18 +21,21 @@ type Address = isize;
 
 pub struct Context {
     idents: HashMap<String, Address>,
-    if_count: usize,
+    /// use for block jump, such as `if-else`, `for-loop`.
+    count: usize,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
             idents: Default::default(),
-            if_count: 0,
+            count: 0,
         }
     }
-    fn count(&mut self) {
-        self.if_count += 1;
+
+    fn count(&mut self) -> usize {
+        self.count += 1;
+        self.count
     }
 
     fn statement(&mut self, stmt: &Stmt) {
@@ -42,12 +45,31 @@ impl Context {
             Stmt::Block(stmt) => self.block_statement(stmt),
             Stmt::Empty(stmt) => self.empty_statement(stmt),
             Stmt::If(stmt) => self.if_statement(stmt),
+            Stmt::For(stmt) => self.for_statement(stmt),
         }
     }
 
+    fn for_statement(&mut self, stmt: &ForStmt) {
+        let c = self.count();
+        if let Some(init) = &stmt.init {
+            self.expression(init);
+        }
+        println!(".L.begin.{}:", c);
+        if let Some(test) = &stmt.test {
+            self.expression(test);
+            println!("cmp $0, %rax");
+            println!("je .L.end.{}", c);
+        }
+        self.statement(&stmt.body);
+        if let Some(update) = &stmt.update {
+            self.expression(update);
+        }
+        println!("jmp .L.begin.{}", c);
+        println!(".L.end.{}:", c);
+    }
+
     fn if_statement(&mut self, stmt: &IfStmt) {
-        self.count();
-        let c = self.if_count;
+        let c = self.count();
         self.expression(&stmt.test);
         println!("cmp $0, %rax");
         println!("je .L.else.{}", c);

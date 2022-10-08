@@ -19,6 +19,7 @@ impl State {
         })
     }
 
+    // TODO: scope
     fn parse_statement(&mut self) -> SResult<Stmt> {
         let start = self.cur_token_start();
         let tt = self.cur_token().get_type();
@@ -37,6 +38,7 @@ impl State {
                 Stmt::Empty(EmptyStmt { loc })
             }
             TokenType::If => Stmt::If(self.parse_if_statement()?),
+            TokenType::For => Stmt::For(self.parse_for_statement()?),
             _ => {
                 let expr = self.parse_expression()?;
                 self.expect(&TokenType::Semi)?;
@@ -48,6 +50,38 @@ impl State {
         };
 
         Ok(stmt)
+    }
+
+    fn parse_for_statement(&mut self) -> SResult<ForStmt> {
+        let start = self.cur_token_start();
+        self.next()?;
+        self.expect(&TokenType::ParenL)?;
+        let init = if matches!(self.cur_token().get_type(), &TokenType::Semi) {
+            None
+        } else {
+            Some(self.parse_expression()?)
+        };
+        self.expect(&TokenType::Semi)?;
+        let test = if matches!(self.cur_token().get_type(), &TokenType::Semi) {
+            None
+        } else {
+            Some(self.parse_expression()?)
+        };
+        self.expect(&TokenType::Semi)?;
+        let update = if matches!(self.cur_token().get_type(), &TokenType::ParenR) {
+            None
+        } else {
+            Some(self.parse_expression()?)
+        };
+        self.expect(&TokenType::ParenR)?;
+        let body = Box::new(self.parse_statement()?);
+        Ok(ForStmt {
+            loc: self.finish_loc(start),
+            init,
+            test,
+            update,
+            body,
+        })
     }
 
     fn parse_block(&mut self) -> SResult<BlockStmt> {
@@ -142,6 +176,16 @@ pub enum Stmt {
     Block(BlockStmt),
     Empty(EmptyStmt),
     If(IfStmt),
+    For(ForStmt),
+}
+
+#[derive(Debug)]
+pub struct ForStmt {
+    pub loc: Loc,
+    pub init: Option<Expr>,
+    pub test: Option<Expr>,
+    pub update: Option<Expr>,
+    pub body: Box<Stmt>,
 }
 
 #[derive(Debug)]
