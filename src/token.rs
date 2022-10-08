@@ -3,7 +3,7 @@ use super::utils::Pos;
 use crate::error::{SError, SyntaxError};
 use crate::utils::Loc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Eof,
     Int32(String),
@@ -23,6 +23,8 @@ pub enum TokenType {
     Assign,
     Name(String),
     Return,
+    BraceL,
+    BraceR,
 }
 
 impl TokenType {
@@ -114,6 +116,14 @@ impl State {
                     self.pos += 1;
                     self.finish_token(start, TokenType::ParenR)
                 }
+                '{' => {
+                    self.pos += 1;
+                    self.finish_token(start, TokenType::BraceL)
+                }
+                '}' => {
+                    self.pos += 1;
+                    self.finish_token(start, TokenType::BraceR)
+                }
                 '=' => self.read_equal(),
                 '!' => self.read_excl(),
                 '<' => self.read_less(),
@@ -144,11 +154,11 @@ impl State {
     }
 
     fn is_valid_start(char: &char) -> bool {
-        (char >= &'a' && char <= &'z') || (char >= &'A' && char <= &'Z') || char == &'_'
+        (&'a'..=&'z').contains(&char) || (&'A'..=&'Z').contains(&char) || char == &'_'
     }
 
     fn is_valid(char: &char) -> bool {
-        Self::is_valid_start(char) || (char >= &'0' && char <= &'9')
+        Self::is_valid_start(char) || (&'0'..=&'9').contains(&char)
     }
 
     fn read_word(&mut self) -> SResult<()> {
@@ -165,8 +175,8 @@ impl State {
         }
         let tt = self
             .is_keyword(&str)
-            .map(|tt| tt.clone())
-            .unwrap_or_else(|| TokenType::Name(str));
+            .cloned()
+            .unwrap_or(TokenType::Name(str));
         self.finish_token(start, tt)
     }
 

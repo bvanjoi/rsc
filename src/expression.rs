@@ -38,7 +38,7 @@ impl State {
             let loc = self.finish_loc(start);
             Ok(Expr::Assign(AssignExpr {
                 loc,
-                left: Box::new(left.as_ident()?),
+                left: Box::new(left.into_ident()?),
                 right: Box::new(right),
             }))
         } else {
@@ -156,7 +156,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn as_ident(self) -> SResult<IdentExpr> {
+    pub fn into_ident(self) -> SResult<IdentExpr> {
         match self {
             Expr::Ident(ident) => Ok(ident),
             _ => Err(SError::new(

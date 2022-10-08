@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
     head, pop, push,
-    statement::{ExprStmt, Program, ReturnStmt, Stmt},
+    statement::{BlockStmt, ExprStmt, Program, ReturnStmt, Stmt},
     tail,
     token::TokenType,
 };
@@ -34,7 +34,12 @@ impl Context {
         match stmt {
             Stmt::Expr(stmt) => self.expression_statement(stmt),
             Stmt::Return(stmt) => self.return_statement(stmt),
+            Stmt::Block(stmt) => self.block_statement(stmt),
         }
+    }
+
+    fn block_statement(&mut self, stmt: &BlockStmt) {
+        stmt.body.iter().for_each(|item| self.statement(item))
     }
 
     fn return_statement(&mut self, stmt: &ReturnStmt) {
@@ -67,14 +72,14 @@ impl Context {
 
     fn ident_expression(&mut self, expr: &IdentExpr) {
         let address = self.get_ident_address(expr);
-        println!("lea {}(%rbp), %rax", -1 * address);
+        println!("lea {}(%rbp), %rax", -address);
         println!("mov (%rax), %rax");
     }
 
     fn assign_expression(&mut self, expr: &AssignExpr) {
         // left
         let address = self.get_ident_address(&expr.left);
-        println!("lea {}(%rbp), %rax", -1 * address);
+        println!("lea {}(%rbp), %rax", -address);
         // --
         push!();
         self.expression(&expr.right);

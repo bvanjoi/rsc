@@ -27,3 +27,8 @@ fn main() -> Result<(), String> {
         Ok(())
     }
 }
+
+#[test]
+fn tttt() {
+    process("{ return 0;}").unwrap();
+}
