@@ -21,8 +21,14 @@ pub struct State {
 
 impl State {
     pub fn new(input: String) -> Self {
-        let keywords =
-            HashMap::from_iter([(String::from("return"), TokenType::Return)].into_iter());
+        let keywords = HashMap::from_iter(
+            [
+                (String::from("return"), TokenType::Return),
+                (String::from("if"), TokenType::If),
+                (String::from("else"), TokenType::Else),
+            ]
+            .into_iter(),
+        );
         Self {
             pos: 0,
             cur_line: 1,

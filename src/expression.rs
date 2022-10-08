@@ -138,7 +138,7 @@ impl State {
         Ok(literal)
     }
 
-    fn parse_paren_expr(&mut self) -> SResult<Expr> {
+    pub(super) fn parse_paren_expr(&mut self) -> SResult<Expr> {
         self.expect(&TokenType::ParenL)?;
         let expr = self.parse_expression()?;
         self.expect(&TokenType::ParenR)?;

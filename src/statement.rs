@@ -36,6 +36,7 @@ impl State {
                 let loc = self.finish_loc(start);
                 Stmt::Empty(EmptyStmt { loc })
             }
+            TokenType::If => Stmt::If(self.parse_if_statement()?),
             _ => {
                 let expr = self.parse_expression()?;
                 self.expect(&TokenType::Semi)?;
@@ -69,10 +70,30 @@ impl State {
         })
     }
 
+    fn parse_if_statement(&mut self) -> SResult<IfStmt> {
+        let start = self.cur_pos();
+        self.next()?;
+        let test = self.parse_paren_expr()?;
+        let consequent = Box::new(self.parse_statement()?);
+
+        let alternate = if self.eat(&TokenType::Else)? {
+            Some(Box::new(self.parse_statement()?))
+        } else {
+            None
+        };
+
+        Ok(IfStmt {
+            loc: self.finish_loc(start),
+            test,
+            consequent,
+            alternate,
+        })
+    }
+
     fn parse_return_statement(&mut self) -> SResult<ReturnStmt> {
         let start = self.cur_pos();
         self.next()?;
-        let stmt = if self.eat(&TokenType::Semi) {
+        let stmt = if self.eat(&TokenType::Semi)? {
             ReturnStmt {
                 loc: self.finish_loc(start),
                 argument: None,
@@ -93,15 +114,20 @@ impl State {
         self.next_token()
     }
 
-    pub(crate) fn eat(&mut self, expected: &TokenType) -> bool {
+    pub(crate) fn eat(&mut self, expected: &TokenType) -> SResult<bool> {
         let token = self.cur_token();
         let actual = token.get_type();
-        actual == expected
+        if actual == expected {
+            self.next()?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     pub(crate) fn expect(&mut self, expected: &TokenType) -> SResult<()> {
-        if self.eat(expected) {
-            self.next()
+        if self.eat(expected)? {
+            Ok(())
         } else {
             let token = self.cur_token();
             self.unexpected(token)
@@ -115,6 +141,15 @@ pub enum Stmt {
     Return(ReturnStmt),
     Block(BlockStmt),
     Empty(EmptyStmt),
+    If(IfStmt),
+}
+
+#[derive(Debug)]
+pub struct IfStmt {
+    pub loc: Loc,
+    pub test: Expr,
+    pub consequent: Box<Stmt>,
+    pub alternate: Option<Box<Stmt>>,
 }
 
 #[derive(Debug)]
