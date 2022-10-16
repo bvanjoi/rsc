@@ -5,6 +5,10 @@ use crate::{
     utils::{Loc, Pos},
 };
 
+fn align(offset: usize, align: usize) -> usize {
+    (offset + align - 1) / align * align
+}
+
 impl State {
     pub(crate) fn parse_top_level(&mut self, start: Pos) -> SResult<Program> {
         let mut body = vec![];
@@ -13,9 +17,11 @@ impl State {
             let stmt = self.parse_statement()?;
             body.push(stmt);
         }
+        let stack_size = align(self.locals.size() * 8, 16);
         Ok(Program {
             loc: Loc::new(start, self.cur_pos()),
             body,
+            stack_size,
         })
     }
 
@@ -234,13 +240,14 @@ pub struct ExprStmt {
 }
 
 #[derive(Debug)]
-pub struct Program {
-    pub loc: Loc,
-    pub body: Vec<Stmt>,
-}
-
-#[derive(Debug)]
 pub struct ReturnStmt {
     pub loc: Loc,
     pub argument: Option<Expr>,
+}
+
+#[derive(Debug)]
+pub struct Program {
+    pub loc: Loc,
+    pub body: Vec<Stmt>,
+    pub stack_size: usize,
 }

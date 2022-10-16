@@ -1,7 +1,8 @@
-use std::collections::HashMap;
-
 use crate::{
-    expression::{AssignExpr, BinaryExpr, Expr, IdentExpr, Int32Literal, Literal, UnaryExpr},
+    expression::{
+        AddrExpr, AssignExpr, BinaryExpr, DerefExpr, Expr, IdentExpr, Int32Literal, LeftVal,
+        Literal, UnaryExpr,
+    },
     head, pop, push,
     statement::{
         BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt, WhileStmt,
@@ -12,26 +13,34 @@ use crate::{
 
 pub fn run(program: &Program, context: Context) {
     let mut context = context;
-    head!();
     for stmt in &program.body {
         context.statement(stmt);
     }
-    tail!();
+
+    println!("{}", head!(program.stack_size));
+    for code in &context.code {
+        println!("{}", code);
+    }
+    println!("{}", tail!());
 }
 
-type Address = isize;
+type Assemble = String;
+
+type Code = Vec<Assemble>;
 
 pub struct Context {
-    idents: HashMap<String, Address>,
     /// use for block jump, such as `if-else`, `for-loop`.
     count: usize,
+    code: Code,
+    stack_size: usize,
 }
 
 impl Context {
-    pub fn new() -> Self {
+    pub fn new(stack_size: usize) -> Self {
         Self {
-            idents: Default::default(),
             count: 0,
+            code: Default::default(),
+            stack_size,
         }
     }
 
@@ -54,13 +63,13 @@ impl Context {
 
     fn while_statement(&mut self, stmt: &WhileStmt) {
         let c = self.count();
-        println!(".L.begin.{}:", c);
+        self.code.push(format!(".L.begin.{}:", c));
         self.expression(&stmt.test);
-        println!("cmp $0, %rax");
-        println!("je .L.end.{}", c);
+        self.code.push(format!("cmp $0, %rax"));
+        self.code.push(format!("je .L.end.{}", c));
         self.statement(&stmt.body);
-        println!("jmp .L.begin.{}", c);
-        println!(".L.end.{}:", c);
+        self.code.push(format!("jmp .L.begin.{}", c));
+        self.code.push(format!(".L.end.{}:", c));
     }
 
     fn for_statement(&mut self, stmt: &ForStmt) {
@@ -68,32 +77,32 @@ impl Context {
         if let Some(init) = &stmt.init {
             self.expression(init);
         }
-        println!(".L.begin.{}:", c);
+        self.code.push(format!(".L.begin.{}:", c));
         if let Some(test) = &stmt.test {
             self.expression(test);
-            println!("cmp $0, %rax");
-            println!("je .L.end.{}", c);
+            self.code.push(format!("cmp $0, %rax"));
+            self.code.push(format!("je .L.end.{}", c));
         }
         self.statement(&stmt.body);
         if let Some(update) = &stmt.update {
             self.expression(update);
         }
-        println!("jmp .L.begin.{}", c);
-        println!(".L.end.{}:", c);
+        self.code.push(format!("jmp .L.begin.{}", c));
+        self.code.push(format!(".L.end.{}:", c));
     }
 
     fn if_statement(&mut self, stmt: &IfStmt) {
         let c = self.count();
         self.expression(&stmt.test);
-        println!("cmp $0, %rax");
-        println!("je .L.else.{}", c);
+        self.code.push(format!("cmp $0, %rax"));
+        self.code.push(format!("je .L.else.{}", c));
         self.statement(&stmt.consequent);
-        println!("jmp .L.end.{}", c);
-        println!(".L.else.{}:", c);
+        self.code.push(format!("jmp .L.end.{}", c));
+        self.code.push(format!(".L.else.{}:", c));
         if let Some(alternate) = &stmt.alternate {
             self.statement(alternate)
         }
-        println!(".L.end.{}:", c);
+        self.code.push(format!(".L.end.{}:", c));
     }
 
     fn empty_statement(&mut self, _stmt: &EmptyStmt) {
@@ -109,7 +118,7 @@ impl Context {
             self.expression(expr);
         }
 
-        println!("jmp .L.return");
+        self.code.push(format!("jmp .L.return"));
     }
 
     fn expression_statement(&mut self, stmt: &ExprStmt) {
@@ -123,82 +132,99 @@ impl Context {
             Expr::Unary(unary) => self.unary_expression(unary),
             Expr::Assign(assign) => self.assign_expression(assign),
             Expr::Ident(ident) => self.ident_expression(ident),
+            Expr::Deref(deref) => self.deref_expression(deref),
+            Expr::Addr(addr) => self.addr_expression(addr),
         }
     }
 
+    fn deref_expression(&mut self, deref: &DerefExpr) {
+        self.expression(&deref.argument);
+        self.code.push(format!("mov (%rax), %rax"));
+    }
+
+    fn addr_expression(&mut self, addr: &AddrExpr) {
+        self.expression(&addr.argument);
+        self.code.pop();
+    }
+
     fn get_ident_address(&mut self, expr: &IdentExpr) -> isize {
-        let size = self.idents.len() as isize;
-        let key = *self.idents.entry(expr.name.clone()).or_insert(size + 1);
-        key * 8
+        -1 * ((self.stack_size - expr.offset * 8) as isize)
     }
 
     fn ident_expression(&mut self, expr: &IdentExpr) {
         let address = self.get_ident_address(expr);
-        println!("lea {}(%rbp), %rax", -address);
-        println!("mov (%rax), %rax");
+        self.code.push(format!("lea {}(%rbp), %rax", address));
+        self.code.push(format!("mov (%rax), %rax"));
     }
 
     fn assign_expression(&mut self, expr: &AssignExpr) {
         // left
-        let address = self.get_ident_address(&expr.left);
-        println!("lea {}(%rbp), %rax", -address);
+        match &*expr.left {
+            LeftVal::Ident(ident) => {
+                let address = self.get_ident_address(ident);
+                self.code.push(format!("lea {}(%rbp), %rax", address));
+            }
+            LeftVal::Deref(deref) => self.expression(&deref.argument),
+        }
+
         // --
-        push!();
+        self.code.push(push!());
         self.expression(&expr.right);
-        pop!("%rdi");
-        println!("mov %rax, (%rdi)");
+        self.code.push(pop!("%rdi"));
+
+        self.code.push(format!("mov %rax, (%rdi)"));
     }
 
     fn binary_expression(&mut self, expr: &BinaryExpr) {
         self.expression(&expr.right);
-        push!();
+        self.code.push(push!());
         self.expression(&expr.left);
-        pop!("%rdi");
+        self.code.push(pop!("%rdi"));
 
         use TokenType::*;
         match expr.op {
             Plus => {
-                println!("add %rdi, %rax");
+                self.code.push(format!("add %rdi, %rax"));
             }
             Minus => {
-                println!("sub %rdi, %rax");
+                self.code.push(format!("sub %rdi, %rax"));
             }
             Star => {
-                println!("imul %rdi, %rax");
+                self.code.push(format!("imul %rdi, %rax"));
             }
             Slash => {
-                println!("cqo");
-                println!("idiv %rdi");
+                self.code.push(format!("cqo"));
+                self.code.push(format!("idiv %rdi"));
             }
             Equal => {
-                println!("cmp %rdi, %rax");
-                println!("sete %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("sete %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             NotEqual => {
-                println!("cmp %rdi, %rax");
-                println!("setne %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("setne %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             Less => {
-                println!("cmp %rdi, %rax");
-                println!("setl %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("setl %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             LessEqual => {
-                println!("cmp %rdi, %rax");
-                println!("setle %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("setle %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             Great => {
-                println!("cmp %rdi, %rax");
-                println!("setg %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("setg %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             GreatEqual => {
-                println!("cmp %rdi, %rax");
-                println!("setge %al");
-                println!("movzb %al, %rax");
+                self.code.push(format!("cmp %rdi, %rax"));
+                self.code.push(format!("setge %al"));
+                self.code.push(format!("movzb %al, %rax"));
             }
             _ => unreachable!(),
         }
@@ -211,15 +237,16 @@ impl Context {
     }
 
     fn int32_literal(&mut self, lit: &Int32Literal) {
-        println!("mov ${}, %rax", lit.num);
+        self.code.push(format!("mov ${}, %rax", lit.num));
     }
 
     fn unary_expression(&mut self, expr: &UnaryExpr) {
+        use TokenType::*;
         match expr.op {
-            TokenType::Plus => self.expression(&expr.argument),
-            TokenType::Minus => {
+            Plus => self.expression(&expr.argument),
+            Minus => {
                 self.expression(&expr.argument);
-                println!("neg %rax");
+                self.code.push(format!("neg %rax"));
             }
             _ => unreachable!(),
         }

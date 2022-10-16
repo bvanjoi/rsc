@@ -23,6 +23,7 @@ pub enum TokenType {
     GreatEqual,
     Semi,
     Assign,
+    And,
     Name(String),
     // keyword
     If,
@@ -109,6 +110,7 @@ impl State {
             let char = self.input[self.pos];
             match char {
                 '0'..='9' => self.read_number(),
+                '&' => self.read_and(),
                 '+' => self.read_plus(),
                 '-' => self.read_minus(),
                 '*' => self.read_star(),
@@ -211,6 +213,12 @@ impl State {
         }
         self.pos += 1;
         Err(SError::new(self.pos + 1, SyntaxError::UnexpectedChar))
+    }
+
+    fn read_and(&mut self) -> SResult<()> {
+        let start = self.cur_pos();
+        self.pos += 1;
+        self.finish_token(start, TokenType::And)
     }
 
     fn read_less(&mut self) -> SResult<()> {

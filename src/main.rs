@@ -1,6 +1,7 @@
 mod code_gen;
 mod error;
 mod expression;
+mod object;
 mod p;
 mod state;
 mod statement;
@@ -13,7 +14,7 @@ use std::env;
 fn process(input: &str) -> SResult<()> {
     let mut state = State::new(input.to_string());
     let program = state.parse()?;
-    let context = code_gen::Context::new();
+    let context = code_gen::Context::new(program.stack_size);
     code_gen::run(&program, context);
     Ok(())
 }
@@ -30,5 +31,5 @@ fn main() -> Result<(), String> {
 
 #[test]
 fn tttt() {
-    process("{ for (;;) {return 3;} return 5; }").unwrap();
+    process("{ *x=1;}").unwrap();
 }
