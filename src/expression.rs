@@ -1,5 +1,6 @@
 use crate::{
     error::{SError, SyntaxError},
+    object::Offset,
     state::{SResult, State},
     token::{Token, TokenType},
     utils::{Loc, Pos},
@@ -38,7 +39,7 @@ impl State {
             let loc = self.finish_loc(start);
             Ok(Expr::Assign(AssignExpr {
                 loc,
-                left: Box::new(left.into_ident()?),
+                left: Box::new(left.into_left_val()?),
                 right: Box::new(right),
             }))
         } else {
@@ -91,6 +92,22 @@ impl State {
                 argument: Box::new(argument),
                 prefix: true,
             })
+        } else if tt.eq(&TokenType::And) {
+            self.next()?;
+            let argument = self.parse_maybe_unary()?;
+            let loc = self.finish_loc(start);
+            Expr::Addr(AddrExpr {
+                loc,
+                argument: Box::new(argument),
+            })
+        } else if tt.eq(&TokenType::Star) {
+            self.next()?;
+            let argument = self.parse_maybe_unary()?;
+            let loc = self.finish_loc(start);
+            Expr::Deref(DerefExpr {
+                loc,
+                argument: Box::new(argument),
+            })
         } else {
             self.parse_atom()?
         };
@@ -117,9 +134,11 @@ impl State {
             _ => unreachable!(),
         };
         self.next()?;
+        let offset = self.locals.offset(&name);
         let expr = IdentExpr {
             loc: self.finish_loc(start),
             name,
+            offset,
         };
         Ok(expr)
     }
@@ -153,12 +172,15 @@ pub enum Expr {
     Unary(UnaryExpr),
     Assign(AssignExpr),
     Ident(IdentExpr),
+    Deref(DerefExpr),
+    Addr(AddrExpr),
 }
 
 impl Expr {
-    pub fn into_ident(self) -> SResult<IdentExpr> {
+    pub fn into_left_val(self) -> SResult<LeftVal> {
         match self {
-            Expr::Ident(ident) => Ok(ident),
+            Expr::Ident(expr) => Ok(LeftVal::Ident(expr)),
+            Expr::Deref(expr) => Ok(LeftVal::Deref(expr)),
             _ => Err(SError::new(
                 self.loc().get_start().pos,
                 SyntaxError::CastWrong,
@@ -173,6 +195,8 @@ impl Expr {
             Expr::Unary(expr) => expr.loc.clone(),
             Expr::Assign(expr) => expr.loc.clone(),
             Expr::Ident(expr) => expr.loc.clone(),
+            Expr::Deref(expr) => expr.loc.clone(),
+            Expr::Addr(expr) => expr.loc.clone(),
         }
     }
 }
@@ -181,13 +205,20 @@ impl Expr {
 pub struct IdentExpr {
     pub loc: Loc,
     pub name: String,
+    pub offset: Offset,
+}
+
+#[derive(Debug)]
+pub enum LeftVal {
+    Ident(IdentExpr),
+    Deref(DerefExpr),
 }
 
 #[derive(Debug)]
 pub struct AssignExpr {
     pub loc: Loc,
     // TODO: left_val
-    pub left: Box<IdentExpr>,
+    pub left: Box<LeftVal>,
     pub right: Box<Expr>,
 }
 
@@ -205,6 +236,18 @@ pub struct UnaryExpr {
     pub op: TokenType,
     pub argument: Box<Expr>,
     pub prefix: bool,
+}
+
+#[derive(Debug)]
+pub struct DerefExpr {
+    pub loc: Loc,
+    pub argument: Box<Expr>,
+}
+
+#[derive(Debug)]
+pub struct AddrExpr {
+    pub loc: Loc,
+    pub argument: Box<Expr>,
 }
 
 #[derive(Debug)]

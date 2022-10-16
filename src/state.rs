@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     error::{SError, SyntaxError},
+    object::Object,
     statement::Program,
     token::{Token, TokenType},
 };
@@ -17,6 +18,7 @@ pub struct State {
     pub(super) keywords: HashMap<String, TokenType>,
     pub(super) input: Vec<char>,
     pub(super) tokens: [Token; 2],
+    pub(super) locals: Object,
 }
 
 impl State {
@@ -38,6 +40,7 @@ impl State {
             input: input.chars().collect(),
             tokens: [Token::eof(), Token::eof()],
             keywords,
+            locals: Object::new(),
         }
     }
 
