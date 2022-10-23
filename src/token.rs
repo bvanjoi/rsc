@@ -1,5 +1,6 @@
 use super::state::{SResult, State};
 use super::utils::Pos;
+use crate::ast::BinaryOp;
 use crate::error::{SError, SyntaxError};
 use crate::utils::Loc;
 
@@ -44,6 +45,23 @@ impl TokenType {
             Star | Slash => Some(3),
             Equal | NotEqual | Less | LessEqual | Great | GreatEqual => Some(7),
             _ => None,
+        }
+    }
+
+    pub const fn binary_op(&self) -> BinaryOp {
+        use BinaryOp::*;
+        match self {
+            TokenType::Plus => Add,
+            TokenType::Minus => Sub,
+            TokenType::Star => Mul,
+            TokenType::Slash => Div,
+            TokenType::Equal => Equal,
+            TokenType::NotEqual => NotEqual,
+            TokenType::Less => Less,
+            TokenType::LessEqual => LessEqual,
+            TokenType::Great => Great,
+            TokenType::GreatEqual => GreatEqual,
+            _ => unreachable!(),
         }
     }
 

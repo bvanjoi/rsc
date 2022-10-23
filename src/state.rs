@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
+    ast::Program,
     error::{SError, SyntaxError},
     object::Object,
-    statement::Program,
     token::{Token, TokenType},
 };
 

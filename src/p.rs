@@ -27,6 +27,7 @@ macro_rules! tail {
 }
 
 #[macro_export]
+/// push `%rax` to stack to project
 macro_rules! push {
     () => {
         format!("push %rax")
@@ -34,6 +35,7 @@ macro_rules! push {
 }
 
 #[macro_export]
+/// pop the value of stack to `$arg`.
 macro_rules! pop {
     ($arg:expr) => {{
         format!("pop {}", $arg)

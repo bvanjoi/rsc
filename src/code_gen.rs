@@ -1,13 +1,13 @@
 use crate::{
-    expression::{
-        AddrExpr, AssignExpr, BinaryExpr, DerefExpr, Expr, IdentExpr, Int32Literal, LeftVal,
-        Literal, UnaryExpr,
+    ast::{
+        AddrExpr, AssignExpr, BinaryExpr, DerefExpr, Expr, IdentExpr, Int32Lit, LeftVal, Lit,
+        UnaryExpr,
     },
-    head, pop, push,
-    statement::{
-        BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt, WhileStmt,
+    ast::{
+        BinaryOp, BlockStmt, EmptyStmt, ExprStmt, ForStmt, IfStmt, Program, ReturnStmt, Stmt,
+        WhileStmt,
     },
-    tail,
+    head, pop, push, tail,
     token::TokenType,
 };
 
@@ -153,6 +153,8 @@ impl Context {
 
     fn ident_expression(&mut self, expr: &IdentExpr) {
         let address = self.get_ident_address(expr);
+        // lea: load effective address
+        // (%rbp) + address -> %rax
         self.code.push(format!("lea {}(%rbp), %rax", address));
         self.code.push(format!("mov (%rax), %rax"));
     }
@@ -171,7 +173,7 @@ impl Context {
         self.code.push(push!());
         self.expression(&expr.right);
         self.code.push(pop!("%rdi"));
-
+        // move the value of (%rdi) to %rax
         self.code.push(format!("mov %rax, (%rdi)"));
     }
 
@@ -181,18 +183,49 @@ impl Context {
         self.expression(&expr.left);
         self.code.push(pop!("%rdi"));
 
-        use TokenType::*;
+        use BinaryOp::*;
         match expr.op {
-            Plus => {
+            Add => {
                 self.code.push(format!("add %rdi, %rax"));
             }
-            Minus => {
+            AddrAdd(ref pos) => {
+                use crate::ast::BinaryAddrPos::*;
+                match pos {
+                    Left => {
+                        self.code.push(format!("imul $8, %rdi"));
+                        self.code.push(format!("add %rdi, %rax"));
+                    }
+                    Right => {
+                        self.code.push(format!("imul $8, %rax"));
+                        self.code.push(format!("add %rdi, %rax"));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Sub => {
                 self.code.push(format!("sub %rdi, %rax"));
             }
-            Star => {
+            AddrSub(ref pos) => {
+                use crate::ast::BinaryAddrPos::*;
+                match pos {
+                    Left => {
+                        self.code.push(format!("imul $8, %rdi"));
+                        self.code.push(format!("sub %rdi, %rax"));
+                    }
+                    Both => {
+                        self.code.push(format!("sub %rdi, %rax"));
+                        // remove offset
+                        self.code.push(format!("mov $8, %rdi"));
+                        self.code.push(format!("cqo"));
+                        self.code.push(format!("idiv %rdi"));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            Mul => {
                 self.code.push(format!("imul %rdi, %rax"));
             }
-            Slash => {
+            Div => {
                 self.code.push(format!("cqo"));
                 self.code.push(format!("idiv %rdi"));
             }
@@ -226,17 +259,16 @@ impl Context {
                 self.code.push(format!("setge %al"));
                 self.code.push(format!("movzb %al, %rax"));
             }
-            _ => unreachable!(),
         }
     }
 
-    fn literal(&mut self, lit: &Literal) {
+    fn literal(&mut self, lit: &Lit) {
         match lit {
-            Literal::Int32(lit) => self.int32_literal(lit),
+            Lit::Int32(lit) => self.int32_literal(lit),
         }
     }
 
-    fn int32_literal(&mut self, lit: &Int32Literal) {
+    fn int32_literal(&mut self, lit: &Int32Lit) {
         self.code.push(format!("mov ${}, %rax", lit.num));
     }
 

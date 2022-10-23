@@ -1,3 +1,4 @@
+mod ast;
 mod code_gen;
 mod error;
 mod expression;
@@ -31,5 +32,5 @@ fn main() -> Result<(), String> {
 
 #[test]
 fn tttt() {
-    process("{ *x=1;}").unwrap();
+    process("{ &y-2+1; }").unwrap();
 }
