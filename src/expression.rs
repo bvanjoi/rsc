@@ -1,6 +1,6 @@
 use crate::{
+    ast::*,
     error::{SError, SyntaxError},
-    object::Offset,
     state::{SResult, State},
     token::{Token, TokenType},
     utils::{Loc, Pos},
@@ -37,9 +37,20 @@ impl State {
             self.next()?;
             let right = self.parse_maybe_assign()?;
             let loc = self.finish_loc(start);
+            // expr to left
+            let left = match left {
+                Expr::Ident(expr) => Box::new(LeftVal::Ident(expr)),
+                Expr::Deref(expr) => Box::new(LeftVal::Deref(expr)),
+                _ => {
+                    return Err(SError::new(
+                        left.loc().get_start().pos,
+                        SyntaxError::CastWrong,
+                    ))
+                }
+            };
             Ok(Expr::Assign(AssignExpr {
                 loc,
-                left: Box::new(left.into_left_val()?),
+                left,
                 right: Box::new(right),
             }))
         } else {
@@ -54,28 +65,108 @@ impl State {
     }
 
     fn parse_operation(&mut self, left: Expr, left_start: Pos, min_prec: u16) -> SResult<Expr> {
-        let tt = self.cur_token().get_type().clone();
+        let token = self.cur_token().clone();
+        let tt = token.get_type().clone();
         if let Some(prec) = tt.prec() {
             // prec:
             // high    low
             //  1      15
-            if prec > min_prec {
+            if prec >= min_prec {
                 return Ok(left);
             }
             self.next()?;
-            let start = self.cur_token_start();
-            let expr = self.parse_maybe_unary()?;
-            let right = self.parse_operation(expr, start, prec)?;
-            let loc = self.finish_loc(left_start);
-            let expr = Expr::Binary(BinaryExpr {
-                left: Box::new(left),
-                right: Box::new(right),
-                op: tt,
-                loc,
-            });
-            Ok(expr)
+            let right_start = self.cur_token_start();
+            let right_expr = self.parse_maybe_unary()?;
+            let right = Box::new(self.parse_operation(right_expr, right_start, prec)?);
+            let loc = self.finish_loc(left_start.clone());
+            let left = Box::new(left);
+            let expr = match tt {
+                TokenType::Plus => self.add_binary(left, token, right, loc)?,
+                TokenType::Minus => self.sub_binary(left, token, right, loc)?,
+                _ => BinaryExpr {
+                    left,
+                    right,
+                    op: tt.binary_op(),
+                    loc,
+                },
+            };
+            self.parse_operation(Expr::Binary(expr), left_start, min_prec)
         } else {
             Ok(left)
+        }
+    }
+
+    fn add_binary(
+        &self,
+        left: Box<Expr>,
+        token: Token,
+        right: Box<Expr>,
+        loc: Loc,
+    ) -> SResult<BinaryExpr> {
+        match (contain_addr(&left), contain_addr(&right)) {
+            // ptr1 + ptr2
+            (true, true) => Err(SError::new(
+                token.get_start().pos,
+                SyntaxError::UnexpectedToken(token),
+            )),
+            // num1 + num2
+            (false, false) => Ok(BinaryExpr {
+                left,
+                right,
+                op: BinaryOp::Add,
+                loc,
+            }),
+            // ptr + num
+            (true, false) => Ok(BinaryExpr {
+                left,
+                op: BinaryOp::AddrAdd(BinaryAddrPos::Left),
+                right,
+                loc,
+            }),
+            // num + ptr
+            (false, true) => Ok(BinaryExpr {
+                left,
+                op: BinaryOp::AddrAdd(BinaryAddrPos::Right),
+                right,
+                loc,
+            }),
+        }
+    }
+
+    fn sub_binary(
+        &self,
+        left: Box<Expr>,
+        token: Token,
+        right: Box<Expr>,
+        loc: Loc,
+    ) -> SResult<BinaryExpr> {
+        match (contain_addr(&left), contain_addr(&right)) {
+            // num1 - num2
+            (false, false) => Ok(BinaryExpr {
+                loc,
+                left,
+                op: BinaryOp::Sub,
+                right,
+            }),
+            // ptr - num
+            (true, false) => Ok(BinaryExpr {
+                loc,
+                left,
+                op: BinaryOp::AddrSub(BinaryAddrPos::Left),
+                right,
+            }),
+            // ptr - ptr
+            (true, true) => Ok(BinaryExpr {
+                loc,
+                left,
+                op: BinaryOp::AddrSub(BinaryAddrPos::Both),
+                right,
+            }),
+            // num - ptr
+            (false, true) => Err(SError::new(
+                token.get_start().pos,
+                SyntaxError::UnexpectedToken(token),
+            )),
         }
     }
 
@@ -143,14 +234,14 @@ impl State {
         Ok(expr)
     }
 
-    fn parse_literal(&mut self, tt: TokenType) -> SResult<Literal> {
+    fn parse_literal(&mut self, tt: TokenType) -> SResult<Lit> {
         let start = self.cur_token_start();
         self.next()?;
 
         let literal = match tt {
             TokenType::Int32(num) => {
                 let loc = self.finish_loc(start);
-                Literal::Int32(Int32Literal { loc, num })
+                Lit::Int32(Int32Lit { loc, num })
             }
             _ => unreachable!(),
         };
@@ -165,106 +256,17 @@ impl State {
     }
 }
 
-#[derive(Debug)]
-pub enum Expr {
-    Binary(BinaryExpr),
-    Literal(Literal),
-    Unary(UnaryExpr),
-    Assign(AssignExpr),
-    Ident(IdentExpr),
-    Deref(DerefExpr),
-    Addr(AddrExpr),
-}
-
-impl Expr {
-    pub fn into_left_val(self) -> SResult<LeftVal> {
-        match self {
-            Expr::Ident(expr) => Ok(LeftVal::Ident(expr)),
-            Expr::Deref(expr) => Ok(LeftVal::Deref(expr)),
-            _ => Err(SError::new(
-                self.loc().get_start().pos,
-                SyntaxError::CastWrong,
-            )),
-        }
+fn contain_addr(expr: &Expr) -> bool {
+    if expr.is_addr() {
+        true
+    } else {
+        expr.as_binary()
+            .map(|bin| &bin.op)
+            .and_then(|op| match op {
+                BinaryOp::AddrAdd(pos) | BinaryOp::AddrSub(pos) => Some(pos),
+                _ => None,
+            })
+            .map(|pos| matches!(pos, BinaryAddrPos::Left | BinaryAddrPos::Right))
+            .unwrap_or_default()
     }
-
-    pub fn loc(&self) -> Loc {
-        match self {
-            Expr::Binary(expr) => expr.loc.clone(),
-            Expr::Literal(expr) => expr.loc(),
-            Expr::Unary(expr) => expr.loc.clone(),
-            Expr::Assign(expr) => expr.loc.clone(),
-            Expr::Ident(expr) => expr.loc.clone(),
-            Expr::Deref(expr) => expr.loc.clone(),
-            Expr::Addr(expr) => expr.loc.clone(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct IdentExpr {
-    pub loc: Loc,
-    pub name: String,
-    pub offset: Offset,
-}
-
-#[derive(Debug)]
-pub enum LeftVal {
-    Ident(IdentExpr),
-    Deref(DerefExpr),
-}
-
-#[derive(Debug)]
-pub struct AssignExpr {
-    pub loc: Loc,
-    // TODO: left_val
-    pub left: Box<LeftVal>,
-    pub right: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct BinaryExpr {
-    pub loc: Loc,
-    pub left: Box<Expr>,
-    pub op: TokenType,
-    pub right: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct UnaryExpr {
-    pub loc: Loc,
-    pub op: TokenType,
-    pub argument: Box<Expr>,
-    pub prefix: bool,
-}
-
-#[derive(Debug)]
-pub struct DerefExpr {
-    pub loc: Loc,
-    pub argument: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub struct AddrExpr {
-    pub loc: Loc,
-    pub argument: Box<Expr>,
-}
-
-#[derive(Debug)]
-pub enum Literal {
-    Int32(Int32Literal),
-}
-
-impl Literal {
-    pub fn loc(&self) -> Loc {
-        match self {
-            Literal::Int32(lit) => lit.loc.clone(),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Int32Literal {
-    pub loc: Loc,
-    pub num: String,
 }
